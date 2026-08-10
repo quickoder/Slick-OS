@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AR Glasses OS</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #000;
+      color: white;
+    }
+
+    /* Live Camera Background */
+    #camera-feed {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    /* 70% Viewport Container (Avoids side lens cut-offs) */
+    .vr-safe-zone {
+      position: relative;
+      z-index: 2;
+      width: 70vw;
+      height: 100vh;
+      margin: 0 auto; /* Centers the active area */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    /* Floating "Dynamic Island" Top Bar */
+    .dynamic-island {
+      background: rgba(15, 15, 20, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 30px;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .island-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* Undo Button */
+    .undo-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: none; /* Hidden until an app is opened */
+      transition: background 0.2s;
+    }
+
+    .undo-btn:active {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    /* App Grid Layout */
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .app-icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .app-icon:active {
+      transform: scale(0.9);
+    }
+
+    .icon-box {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .app-label {
+      font-size: 12px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    /* Active App Window Overlay */
+    .app-window {
+      position: absolute;
+      top: 100px;
+      width: 100%;
+      height: 65vh;
+      background: rgba(20, 20, 25, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .app-window h2 {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <video id="camera-feed" autoplay playsinline muted></video>
+
+  <div class="vr-safe-zone">
+    
+    <div class="dynamic-island" id="island">
+      <span class="island-title" id="island-status">AR System Ready</span>
+      <button class="undo-btn" id="undo-btn" onclick="closeApp()">↩ Undo</button>
+    </div>
+
+    <div class="app-grid" id="app-grid">
+      <div class="app-icon" onclick="openApp('Media Player', '🎵 Now Playing: Cyberpunk Beats')">
+        <div class="icon-box">🎵</div>
+        <span class="app-label">Music</span>
+      </div>
+      <div class="app-icon" onclick="openApp('Navigation', '🗺️ AR Waypoints Active')">
+        <div class="icon-box">🧭</div>
+        <span class="app-label">Nav</span>
+      </div>
+      <div class="app-icon" onclick="openApp('Messages', '💬 2 Unread AR Glasses Messages')">
+        <div class="icon-box">💬</div>
+        <span class="app-label">Chat</span>
+      </div>
+    </div>
+
+    <div class="app-window" id="app-window">
+      <h2 id="app-title">App</h2>
+      <p id="app-content">Content goes here...</p>
+    </div>
+
+  </div>
+
+  <script>
+    // Enable Camera Feed
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        const video = document.getElementById('camera-feed');
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Camera access is required for the AR pass-through background.");
+      }
+    }
+
+    // App Navigation Logic
+    const undoBtn = document.getElementById('undo-btn');
+    const islandStatus = document.getElementById('island-status');
+    const appGrid = document.getElementById('app-grid');
+    const appWindow = document.getElementById('app-window');
+    const appTitle = document.getElementById('app-title');
+    const appContent = document.getElementById('app-content');
+
+    function openApp(name, content) {
+      appGrid.style.display = 'none';
+      appWindow.style.display = 'flex';
+      appTitle.innerText = name;
+      appContent.innerText = content;
+      
+      // Update Dynamic Island
+      islandStatus.innerText = name;
+      undoBtn.style.display = 'inline-block';
+    }
+
+    function closeApp() {
+      appWindow.style.display = 'none';
+      appGrid.style.display = 'grid';
+      
+      // Reset Dynamic Island
+      islandStatus.innerText = 'AR System Ready';
+      undoBtn.style.display = 'none';
+    }
+
+    // Start Camera on load
+    initCamera();
+  </script>
+</body>
+</html>
