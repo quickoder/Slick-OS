@@ -32,7 +32,7 @@
       z-index: 1;
     }
 
-    /* 70% Viewport Container (Avoids side lens cut-offs) */
+    /* 70% Viewport Container (Lens Safe Zone) */
     .vr-safe-zone {
       position: relative;
       z-index: 2;
@@ -41,107 +41,126 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
       align-items: center;
-      padding: 40px 20px;
+      padding: 30px 10px;
     }
 
-    /* Floating "Dynamic Island" Top Bar */
+    /* Dynamic Island Top Bar */
     .dynamic-island {
-      background: rgba(15, 15, 20, 0.65);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      position: relative;
+      z-index: 100;
+      background: rgba(15, 15, 20, 0.85);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 30px;
-      padding: 10px 24px;
+      padding: 10px 20px;
       display: flex;
       align-items: center;
-      gap: 15px;
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      gap: 12px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      margin-bottom: 15px;
     }
 
     .island-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
 
-    /* Undo Button */
-    .undo-btn {
-      background: rgba(255, 255, 255, 0.2);
+    .action-btn {
+      background: rgba(255, 255, 255, 0.25);
       border: none;
       color: white;
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
       cursor: pointer;
-      display: none; /* Hidden until an app is opened */
-      transition: background 0.2s;
     }
 
-    .undo-btn:active {
-      background: rgba(255, 255, 255, 0.4);
+    .action-btn:active {
+      background: rgba(255, 255, 255, 0.5);
     }
 
-    /* App Grid Layout */
+    #undo-btn { display: none; }
+
+    /* App Grid Container */
+    .app-grid-container {
+      width: 100%;
+      max-height: 75vh;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .app-grid-container::-webkit-scrollbar { display: none; }
+
     .app-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
+      gap: 20px 15px;
       width: 100%;
-      max-width: 320px;
+      padding: 10px 0;
     }
 
     .app-icon {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       cursor: pointer;
-      transition: transform 0.2s;
     }
 
     .app-icon:active {
-      transform: scale(0.9);
+      transform: scale(0.92);
     }
 
     .icon-box {
-      width: 60px;
-      height: 60px;
+      width: 62px;
+      height: 62px;
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.25);
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 24px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .icon-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 15px;
     }
 
     .app-label {
-      font-size: 12px;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      font-size: 11px;
+      font-weight: 500;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      text-align: center;
+      max-width: 70px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* Active App Window Overlay */
+    /* Active Window Overlay */
     .app-window {
-      position: absolute;
-      top: 100px;
       width: 100%;
-      height: 65vh;
-      background: rgba(20, 20, 25, 0.85);
+      height: 75vh;
+      background: rgba(15, 15, 20, 0.88);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 24px;
       overflow: hidden;
       display: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     }
 
     iframe {
@@ -149,6 +168,58 @@
       height: 100%;
       border: none;
     }
+
+    /* Add Custom App Modal */
+    .modal {
+      position: absolute;
+      top: 90px;
+      width: 100%;
+      background: rgba(20, 20, 30, 0.95);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 24px;
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      z-index: 110;
+    }
+
+    .modal h3 {
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 5px;
+    }
+
+    .modal-buttons button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn-submit { background: #34c759; color: white; }
+    .btn-cancel { background: #ff3b30; color: white; }
   </style>
 </head>
 <body>
@@ -157,85 +228,585 @@
 
   <div class="vr-safe-zone">
     
-    <div class="dynamic-island" id="island">
-      <span class="island-title" id="island-status">AR System Ready</span>
-      <button class="undo-btn" id="undo-btn" onclick="closeApp()">↩ Undo</button>
+    <div class="dynamic-island">
+      <span class="island-title" id="island-status">AR Glasses OS</span>
+      <button class="action-btn" id="add-btn" onclick="openModal()">+ Add</button>
+      <button class="action-btn" id="undo-btn" onclick="closeApp()">↩ Undo</button>
     </div>
 
-    <div class="app-grid" id="app-grid">
-      <div class="app-icon" onclick="openRealApp('Spotify', 'https://open.spotify.com')">
-        <div class="icon-box">🎵</div>
-        <span class="app-label">Spotify</span>
-      </div>
-
-      <div class="app-icon" onclick="openRealApp('Maps', 'https://maps.google.com')">
-        <div class="icon-box">🧭</div>
-        <span class="app-label">Maps</span>
-      </div>
-
-      <div class="app-icon" onclick="openRealApp('Text', 'sms:')">
-        <div class="icon-box">💬</div>
-        <span class="app-label">Text</span>
-      </div>
+    <div class="app-grid-container">
+      <div class="app-grid" id="app-grid"></div>
     </div>
 
     <div class="app-window" id="app-window">
       <iframe id="app-frame" src="about:blank"></iframe>
     </div>
 
+    <div class="modal" id="add-modal">
+      <h3>Add Shortcut</h3>
+      <input type="text" id="app-name" placeholder="Name (e.g., Twitch)">
+      <input type="url" id="app-url" placeholder="URL or tel:/sms:">
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-submit" onclick="saveApp()">Save</button>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    // Enable Rear Camera Feed
+    // -------------------------------------------------------------
+    // CUSTOM APP 1: JewTube
+    // -------------------------------------------------------------
+    const jewtubeCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://www.youtube.com/iframe_api"><\/script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JewTube</title>
+    <style>
+        html, body { height: 100%; margin: 0; padding: 12px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f0f0f; background-color: #fff; overflow-x: hidden; }
+        h1 { color: #cc0000; font-size: 22px; margin-bottom: 4px; }
+        #status-msg { font-style: italic; color: #666; margin-bottom: 12px; font-size: 12px; }
+        .chip-container { display: flex; flex-wrap: wrap; padding: 4px 0; margin-bottom: 10px; gap: 6px; align-items: center; }
+        .creator-chips { border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; margin-bottom: 8px; }
+        .chip-btn { display: inline-block; padding: 6px 12px; border-radius: 8px; background-color: #f2f2f2; color: #0f0f0f; font-size: 11px; font-weight: 500; border: none; cursor: pointer; transition: background-color 0.2s; }
+        .chip-btn.active-chip { background-color: #0f0f0f; color: #ffffff; }
+        .btn-gemini { background-color: #e5e5e5; font-weight: 600; }
+        .video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 auto; padding: 5px 0; }
+        @media (max-width: 500px) { .video-grid { grid-template-columns: repeat(2, 1fr); } }
+        .video-card { background-color: #fff; border-radius: 10px; overflow: hidden; position: relative; padding-bottom: 6px; }
+        .video-card-thumbnail-wrapper { width: 100%; padding-top: 56.25%; position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; background: #eee; }
+        .video-card img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .video-card-info { padding: 6px 0; }
+        .video-card-info a { font-weight: bold; text-decoration: none; color: #0f0f0f; display: block; margin-bottom: 2px; font-size: 11px; line-height: 1.2; }
+        #video-embed-view { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99; padding: 10px; box-sizing: border-box; }
+        .player-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .back-btn { background: rgba(255, 255, 255, 0.2); color: #fff; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; margin-bottom: 8px; font-size: 12px; align-self: flex-start; }
+        .embed-container { flex: 1; position: relative; width: 100%; height: 100%; background: #000; border-radius: 12px; overflow: hidden; }
+        .embed-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        #playing-video-title { color: #fff; margin-top: 8px; font-size: 12px; line-height: 1.3; }
+    </style>
+</head>
+<body>
+<h1>JewTube</h1>
+<div id="status-msg">Select or add a creator to display their feed.</div>
+<div id="creator-filter-section" class="chip-container creator-chips">
+    <button class="chip-btn active-chip" id="filter-all-btn" onclick="filterByCreator('all')">All Creators</button>
+    <div id="creator-chips-list" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+</div>
+<div class="chip-container">
+    <button id="add-btn" class="chip-btn btn-gemini" onclick="addCreatorWithGemini()">+ Add Creator with Gemini</button>
+</div>
+<div id="videos-container">
+    <div id="videos-grid-wrapper">
+        <div id="videos-results" class="video-grid"></div>
+    </div>
+    <div id="video-embed-view">
+        <div class="player-wrapper">
+            <button class="back-btn" onclick="closeVideoPlayer()">← Back to Feed</button>
+            <div class="embed-container"><div id="main-video-player"></div></div>
+            <h3 id="playing-video-title"></h3>
+        </div>
+    </div>
+</div>
+<script>
+const GEMINI_API_KEY = "AIzaSyC7Mdu-brt_LdYmAW8N1HgQ5BaNBRx4488";
+const YT_API_KEY = "AIzaSyCEL-by32y84ZL8gvDpkyGPSGZpLt3Dq2w";
+let creators = JSON.parse(localStorage.getItem("jewtube_creators") || "[]");
+let allVideos = [];
+let currentFilter = 'all';
+let mainPlayer;
+
+function saveCreatorsToStorage() { localStorage.setItem("jewtube_creators", JSON.stringify(creators)); }
+
+async function addCreatorWithGemini() {
+    const promptText = prompt("Ask Gemini for creators:");
+    if (!promptText) return;
+    const addBtn = document.getElementById("add-btn");
+    addBtn.innerText = "Searching..."; addBtn.disabled = true;
+    const geminiUrl = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
+    try {
+        let suggestedChannels = [];
+        const geminiRes = await fetch(geminiUrl, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: \`If "\${promptText}" is a creator, return JSON: [{"name": "Channel Name"}]\` }] }], generationConfig: { responseMimeType: "application/json" } })
+        });
+        const geminiData = await geminiRes.json();
+        if (!geminiRes.ok) { suggestedChannels = [{ name: promptText }]; } 
+        else { suggestedChannels = JSON.parse(geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]"); }
+        if (suggestedChannels.length === 0) suggestedChannels = [{ name: promptText }];
+        for (const item of suggestedChannels) {
+            const name = item.name || item.channelName;
+            if (name) {
+                const ytChannel = await searchYouTubeChannel(name);
+                if (ytChannel) { addChannelToState(ytChannel); break; }
+            }
+        }
+    } catch (err) {
+        const fallbackChannel = await searchYouTubeChannel(promptText);
+        if (fallbackChannel) addChannelToState(fallbackChannel);
+        else alert("Error finding channel.");
+    } finally {
+        addBtn.innerText = "+ Add Creator with Gemini"; addBtn.disabled = false;
+    }
+}
+
+async function searchYouTubeChannel(channelName) {
+    const ytUrl = \`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=\${encodeURIComponent(channelName)}&key=\${YT_API_KEY}\`;
+    try {
+        const res = await fetch(ytUrl);
+        const data = await res.json();
+        if (res.ok && data.items?.length > 0) {
+            return { name: data.items[0].snippet.channelTitle, channelId: data.items[0].snippet.channelId };
+        }
+    } catch (err) {}
+    return null;
+}
+
+function addChannelToState(channel) {
+    if (!creators.some(c => c.channelId === channel.channelId)) {
+        creators.push(channel); saveCreatorsToStorage(); renderCreatorChips(); fetchAllVideos();
+    } else { alert(\`\${channel.name} is already added!\`); }
+}
+
+async function fetchAllVideos() {
+    if (creators.length === 0) { updateStatus("No creators added. Click '+ Add Creator with Gemini'."); return; }
+    updateStatus("Updating feeds...");
+    let fetchedItems = [];
+    for (const creator of creators) {
+        const uploadsPlaylistId = creator.channelId.replace(/^UC/, "UU");
+        const url = \`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=\${uploadsPlaylistId}&maxResults=10&key=\${YT_API_KEY}\`;
+        try {
+            const res = await fetch(url); const data = await res.json();
+            if (res.ok && data.items) {
+                data.items.forEach(item => {
+                    fetchedItems.push({
+                        title: item.snippet.title, videoId: item.snippet.resourceId.videoId,
+                        channelId: creator.channelId, channelTitle: creator.name,
+                        publishedAt: item.snippet.publishedAt, thumbnail: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url
+                    });
+                });
+            }
+        } catch (e) {}
+    }
+    fetchedItems.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    allVideos = fetchedItems; updateStatus("Feed updated."); applyFilters();
+}
+
+function renderCreatorChips() {
+    const list = document.getElementById('creator-chips-list');
+    list.innerHTML = creators.map(c => \`<button class="chip-btn \${currentFilter === c.channelId ? 'active-chip' : ''}" onclick="filterByCreator('\${c.channelId}')">\${c.name}</button>\`).join('');
+}
+
+function filterByCreator(channelId) {
+    currentFilter = channelId; applyFilters();
+}
+
+function applyFilters() {
+    let filteredVideos = currentFilter === 'all' ? allVideos : allVideos.filter(v => v.channelId === currentFilter);
+    renderVideoGrid(filteredVideos);
+}
+
+function renderVideoGrid(videos) {
+    const container = document.getElementById('videos-results');
+    if (videos.length === 0) { container.innerHTML = "<div style='grid-column: 1/-1; text-align:center;'>No videos found.</div>"; return; }
+    container.innerHTML = videos.map(item => {
+        const safeTitle = item.title.replace(/'/g, "\\'");
+        return \`<div class="video-card">
+            <div class="video-card-thumbnail-wrapper" onclick="openVideoPlayer('\${item.videoId}', '\${safeTitle}')">
+                <img src="\${item.thumbnail}" alt="\${safeTitle}">
+            </div>
+            <div class="video-card-info">
+                <a href="javascript:void(0)" onclick="openVideoPlayer('\${item.videoId}', '\${safeTitle}')">\${item.title}</a>
+                <small><strong>\${item.channelTitle}</strong></small>
+            </div>
+        </div>\`;
+    }).join('');
+}
+
+function openVideoPlayer(videoId, title) {
+    document.getElementById('videos-grid-wrapper').style.display = 'none';
+    document.getElementById('video-embed-view').style.display = 'block';
+    document.getElementById('playing-video-title').textContent = title;
+    if (mainPlayer) { mainPlayer.loadVideoById(videoId); } 
+    else { mainPlayer = new YT.Player('main-video-player', { height: '100%', width: '100%', videoId: videoId, playerVars: { 'autoplay': 1, 'modestbranding': 1 } }); }
+}
+
+function closeVideoPlayer() {
+    if (mainPlayer && typeof mainPlayer.stopVideo === 'function') mainPlayer.stopVideo();
+    document.getElementById('videos-grid-wrapper').style.display = 'block';
+    document.getElementById('video-embed-view').style.display = 'none';
+}
+
+function updateStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (creators.length > 0) fetchAllVideos(); });
+<\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 2: Custom AR Maps App with Meta Smart Banner HUD
+    // -------------------------------------------------------------
+    const mapsCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Maps</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: white; }
+    #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+
+    /* Top Search Header Controls */
+    .controls-overlay {
+      position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .search-box {
+      display: flex; gap: 8px; background: rgba(15, 15, 20, 0.85);
+      backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 16px;
+      padding: 6px 12px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .search-box input {
+      flex: 1; background: transparent; border: none; outline: none; color: white; font-size: 13px;
+    }
+    .search-box button {
+      background: #007aff; border: none; color: white; border-radius: 10px;
+      padding: 6px 12px; font-weight: bold; font-size: 11px; cursor: pointer;
+    }
+    .chip-bar {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; pointer-events: auto;
+    }
+    .chip-bar::-webkit-scrollbar { display: none; }
+    .map-chip {
+      background: rgba(20, 20, 30, 0.85); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px;
+      padding: 5px 12px; font-size: 11px; white-space: nowrap; color: white;
+      cursor: pointer; font-weight: 500;
+    }
+    .map-chip:active { background: #007aff; }
+
+    /* Meta Glasses Bottom Navigation Popup Card */
+    .meta-nav-card {
+      position: absolute; bottom: 12px; left: 12px; right: 12px; z-index: 1000;
+      background: rgba(15, 15, 20, 0.92); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(52, 199, 89, 0.4); border-radius: 20px;
+      padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 10px 35px rgba(0,255,100,0.15), 0 8px 30px rgba(0,0,0,0.8);
+      transform: translateY(120%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: auto;
+    }
+
+    .meta-nav-card.active {
+      transform: translateY(0);
+    }
+
+    .nav-icon-box {
+      width: 42px; height: 42px; border-radius: 12px; background: rgba(52, 199, 89, 0.2);
+      border: 1px solid rgba(52, 199, 89, 0.6); display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-right: 12px; flex-shrink: 0;
+    }
+
+    .nav-details { display: flex; flex-direction: column; flex: 1; overflow: hidden; margin-right: 8px; }
+    .nav-instruction { font-size: 13px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-sub { font-size: 11px; color: #34c759; font-weight: 600; margin-top: 2px; }
+
+    .nav-actions { display: flex; align-items: center; gap: 6px; }
+    .nav-btn-next { background: #34c759; border: none; color: black; padding: 7px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .nav-btn-close { background: rgba(255,255,255,0.15); border: none; color: white; padding: 7px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="controls-overlay">
+    <div class="search-box">
+      <input type="text" id="map-search-input" placeholder="Navigate to place..." onkeydown="if(event.key==='Enter') searchLocation()">
+      <button onclick="searchLocation()">Go</button>
+    </div>
+    <div class="chip-bar">
+      <button class="map-chip" onclick="quickSearch('Coffee')">☕ Coffee</button>
+      <button class="map-chip" onclick="quickSearch('Restaurant')">🍔 Food</button>
+      <button class="map-chip" onclick="quickSearch('Gas station')">⛽ Gas</button>
+      <button class="map-chip" onclick="quickSearch('Parking')">🅿️ Parking</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="meta-nav-card" id="meta-nav-card">
+    <div class="nav-icon-box" id="hud-turn-icon">⬆️</div>
+    <div class="nav-details">
+      <span class="nav-instruction" id="hud-instruction">Head North on Main St</span>
+      <span class="nav-sub" id="hud-sub">In 200 ft • 4 min (0.8 mi)</span>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn-next" onclick="nextStep()">Next</button>
+      <button class="nav-btn-close" onclick="cancelNav()">✕</button>
+    </div>
+  </div>
+
+  <script>
+    let map, userMarker, searchMarker, routeLine;
+    let defaultLat = 34.0522, defaultLng = -118.2437; // Default LA
+    let navSteps = [], currentStepIdx = 0;
+
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView([defaultLat, defaultLng], 14);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap © CARTO'
+      }).addTo(map);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          defaultLat = pos.coords.latitude;
+          defaultLng = pos.coords.longitude;
+          map.setView([defaultLat, defaultLng], 15);
+          addUserMarker(defaultLat, defaultLng);
+        }, () => addUserMarker(defaultLat, defaultLng));
+      } else {
+        addUserMarker(defaultLat, defaultLng);
+      }
+    }
+
+    function addUserMarker(lat, lng) {
+      if (userMarker) map.removeLayer(userMarker);
+      const userIcon = L.divIcon({
+        className: 'custom-user-pin',
+        html: '<div style="width:18px;height:18px;background:#007aff;border:3px solid white;border-radius:50%;box-shadow:0 0 12px #007aff;"></div>'
+      });
+      userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+    }
+
+    async function searchLocation(queryOverride) {
+      const query = queryOverride || document.getElementById('map-search-input').value.trim();
+      if (!query) return;
+
+      try {
+        const res = await fetch(\`https://nominatim.openstreetmap.org/search?format=json&q=\${encodeURIComponent(query)}&lat=\${defaultLat}&lon=\${defaultLng}\`);
+        const data = await res.json();
+
+        if (data && data.length > 0) {
+          const destLat = parseFloat(data[0].lat);
+          const destLng = parseFloat(data[0].lon);
+
+          if (searchMarker) map.removeLayer(searchMarker);
+          searchMarker = L.marker([destLat, destLng]).addTo(map).bindPopup(data[0].display_name).openPopup();
+
+          // Fetch turn-by-turn route via OSRM
+          await getTurnByTurnRoute(defaultLat, defaultLng, destLat, destLng, data[0].display_name.split(',')[0]);
+        }
+      } catch (err) {
+        console.error("Navigation error", err);
+      }
+    }
+
+    async function getTurnByTurnRoute(startLat, startLng, endLat, endLng, destinationName) {
+      const url = \`https://router.project-osrm.org/route/v1/driving/\${startLng},\${startLat};\${endLng},\${endLat}?steps=true&geometries=geojson\`;
+      try {
+        const res = await fetch(url);
+        const routeData = await res.json();
+
+        if (routeData.routes && routeData.routes.length > 0) {
+          const route = routeData.routes[0];
+          
+          // Draw polyline
+          if (routeLine) map.removeLayer(routeLine);
+          const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
+          routeLine = L.polyline(coordinates, { color: '#34c759', weight: 5, opacity: 0.9 }).addTo(map);
+          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+          // Parse Turn Steps
+          navSteps = [];
+          route.legs[0].steps.forEach(s => {
+            navSteps.push({
+              instruction: s.maneuver.type === 'arrive' ? \`Arrived at \${destinationName}\` : (s.name ? \`Turn onto \${s.name}\` : 'Head towards destination'),
+              type: s.maneuver.type,
+              modifier: s.maneuver.modifier,
+              distance: Math.round(s.distance * 3.28084), // feet
+              duration: Math.round(route.duration / 60)
+            });
+          });
+
+          currentStepIdx = 0;
+          showStepInHUD(destinationName);
+        }
+      } catch (e) {
+        // Fallback simple HUD
+        navSteps = [{ instruction: \`Heading to \${destinationName}\`, type: 'straight', distance: 500, duration: 5 }];
+        currentStepIdx = 0;
+        showStepInHUD(destinationName);
+      }
+    }
+
+    function showStepInHUD(destName) {
+      if (navSteps.length === 0) return;
+      const step = navSteps[currentStepIdx];
+      
+      let icon = '⬆️';
+      if (step.modifier?.includes('right')) icon = '↗️';
+      else if (step.modifier?.includes('left')) icon = '↖️';
+      else if (step.type === 'arrive') icon = '📍';
+
+      document.getElementById('hud-turn-icon').innerText = icon;
+      document.getElementById('hud-instruction').innerText = step.instruction;
+      document.getElementById('hud-sub').innerText = step.type === 'arrive' ? 'Destination Reached' : \`In \${step.distance} ft • \${step.duration} min to \${destName}\`;
+      
+      // Slide up Meta HUD banner
+      document.getElementById('meta-nav-card').classList.add('active');
+    }
+
+    function nextStep() {
+      currentStepIdx++;
+      if (currentStepIdx < navSteps.length) {
+        showStepInHUD('Destination');
+      } else {
+        cancelNav();
+      }
+    }
+
+    function cancelNav() {
+      document.getElementById('meta-nav-card').classList.remove('active');
+      if (routeLine) map.removeLayer(routeLine);
+      if (searchMarker) map.removeLayer(searchMarker);
+    }
+
+    function quickSearch(category) {
+      document.getElementById('map-search-input').value = category;
+      searchLocation(category);
+    }
+
+    window.onload = initMap;
+  <\/script>
+</body>
+</html>`;
+
+    // System Default Apps
+    const defaultApps = [
+      { name: 'Phone', url: 'tel:', domain: 'apple.com', native: true },
+      { name: 'Text', url: 'sms:', domain: 'apple.com', native: true },
+      { name: 'Maps', url: 'internal:maps', domain: 'maps.google.com', native: false },
+      { name: 'JewTube', url: 'internal:jewtube', domain: 'youtube.com', native: false },
+      { name: 'Spotify', url: 'https://open.spotify.com', domain: 'spotify.com', native: false }
+    ];
+
+    let userApps = defaultApps;
+    localStorage.setItem('ar_apps', JSON.stringify(defaultApps));
+
+    // Camera Passthrough
     async function initCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
           audio: false
         });
-        const video = document.getElementById('camera-feed');
-        video.srcObject = stream;
+        document.getElementById('camera-feed').srcObject = stream;
       } catch (err) {
-        alert("Camera access is required for the AR pass-through background.");
+        console.warn("Camera passthrough non-active.");
       }
+    }
+
+    // Render Grid
+    function renderApps() {
+      const grid = document.getElementById('app-grid');
+      grid.innerHTML = '';
+
+      userApps.forEach((app) => {
+        const appDiv = document.createElement('div');
+        appDiv.className = 'app-icon';
+        
+        let logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${app.domain || 'google.com'}`;
+
+        appDiv.innerHTML = `
+          <div class="icon-box">
+            <img src="${logoUrl}" alt="${app.name}" />
+          </div>
+          <span class="app-label">${app.name}</span>
+        `;
+
+        appDiv.onclick = () => openApp(app);
+        grid.appendChild(appDiv);
+      });
     }
 
     // App Navigation Logic
-    const undoBtn = document.getElementById('undo-btn');
-    const islandStatus = document.getElementById('island-status');
-    const appGrid = document.getElementById('app-grid');
-    const appWindow = document.getElementById('app-window');
-    const appFrame = document.getElementById('app-frame');
-
-    function openRealApp(name, url) {
-      // Trigger native phone links directly
-      if (url.startsWith('sms:')) {
-        window.location.href = url;
+    function openApp(app) {
+      if (app.native || app.url.startsWith('tel:') || app.url.startsWith('sms:')) {
+        window.location.href = app.url;
         return;
       }
 
-      // Load web apps inside the AR frame
-      appGrid.style.display = 'none';
-      appWindow.style.display = 'block';
-      appFrame.src = url;
+      document.querySelector('.app-grid-container').style.display = 'none';
+      document.getElementById('app-window').style.display = 'block';
+
+      const iframe = document.getElementById('app-frame');
+
+      if (app.url === 'internal:jewtube') {
+        iframe.srcdoc = jewtubeCode;
+      } else if (app.url === 'internal:maps') {
+        iframe.srcdoc = mapsCode;
+      } else {
+        iframe.removeAttribute('srcdoc');
+        iframe.src = app.url;
+      }
       
-      // Update Dynamic Island
-      islandStatus.innerText = name;
-      undoBtn.style.display = 'inline-block';
+      document.getElementById('island-status').innerText = app.name;
+      document.getElementById('undo-btn').style.display = 'inline-block';
+      document.getElementById('add-btn').style.display = 'none';
     }
 
     function closeApp() {
-      appFrame.src = 'about:blank'; // Stop loading web app
-      appWindow.style.display = 'none';
-      appGrid.style.display = 'grid';
+      const iframe = document.getElementById('app-frame');
+      iframe.removeAttribute('srcdoc');
+      iframe.src = 'about:blank';
       
-      // Reset Dynamic Island
-      islandStatus.innerText = 'AR System Ready';
-      undoBtn.style.display = 'none';
+      document.getElementById('app-window').style.display = 'none';
+      document.querySelector('.app-grid-container').style.display = 'block';
+      
+      document.getElementById('island-status').innerText = 'AR Glasses OS';
+      document.getElementById('undo-btn').style.display = 'none';
+      document.getElementById('add-btn').style.display = 'inline-block';
     }
 
-    // Initialize Camera on Launch
+    // Add App Modal
+    function openModal() {
+      document.getElementById('add-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('add-modal').style.display = 'none';
+      document.getElementById('app-name').value = '';
+      document.getElementById('app-url').value = '';
+    }
+
+    function saveApp() {
+      const name = document.getElementById('app-name').value.trim();
+      let url = document.getElementById('app-url').value.trim();
+
+      if (!name || !url) {
+        alert('Please fill out both fields.');
+        return;
+      }
+
+      const isNative = url.startsWith('tel:') || url.startsWith('sms:');
+      if (!isNative && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      userApps.push({ name, url, native: isNative });
+      localStorage.setItem('ar_apps', JSON.stringify(userApps));
+      renderApps();
+      closeModal();
+    }
+
     initCamera();
+    renderApps();
   </script>
 </body>
 </html>
