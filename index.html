@@ -129,6 +129,7 @@
       align-items: center;
       box-shadow: 0 6px 20px rgba(0,0,0,0.3);
       overflow: hidden;
+      font-size: 28px;
     }
 
     .icon-box img {
@@ -447,7 +448,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
 </html>`;
 
     // -------------------------------------------------------------
-    // CUSTOM APP 2: Custom AR Maps App with Meta Smart Banner HUD
+    // CUSTOM APP 2: Custom AR Maps App (Cleaned: Top Selector Chips Removed)
     // -------------------------------------------------------------
     const mapsCode = `<!DOCTYPE html>
 <html lang="en">
@@ -480,17 +481,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       background: #007aff; border: none; color: white; border-radius: 10px;
       padding: 6px 12px; font-weight: bold; font-size: 11px; cursor: pointer;
     }
-    .chip-bar {
-      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; pointer-events: auto;
-    }
-    .chip-bar::-webkit-scrollbar { display: none; }
-    .map-chip {
-      background: rgba(20, 20, 30, 0.85); backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px;
-      padding: 5px 12px; font-size: 11px; white-space: nowrap; color: white;
-      cursor: pointer; font-weight: 500;
-    }
-    .map-chip:active { background: #007aff; }
 
     /* Meta Glasses Bottom Navigation Popup Card */
     .meta-nav-card {
@@ -526,14 +516,8 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
 
   <div class="controls-overlay">
     <div class="search-box">
-      <input type="text" id="map-search-input" placeholder="Navigate to place..." onkeydown="if(event.key==='Enter') searchLocation()">
+      <input type="text" id="map-search-input" placeholder="Search address or location..." onkeydown="if(event.key==='Enter') searchLocation()">
       <button onclick="searchLocation()">Go</button>
-    </div>
-    <div class="chip-bar">
-      <button class="map-chip" onclick="quickSearch('Coffee')">☕ Coffee</button>
-      <button class="map-chip" onclick="quickSearch('Restaurant')">🍔 Food</button>
-      <button class="map-chip" onclick="quickSearch('Gas station')">⛽ Gas</button>
-      <button class="map-chip" onclick="quickSearch('Parking')">🅿️ Parking</button>
     </div>
   </div>
 
@@ -599,7 +583,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
           if (searchMarker) map.removeLayer(searchMarker);
           searchMarker = L.marker([destLat, destLng]).addTo(map).bindPopup(data[0].display_name).openPopup();
 
-          // Fetch turn-by-turn route via OSRM
           await getTurnByTurnRoute(defaultLat, defaultLng, destLat, destLng, data[0].display_name.split(',')[0]);
         }
       } catch (err) {
@@ -616,20 +599,18 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         if (routeData.routes && routeData.routes.length > 0) {
           const route = routeData.routes[0];
           
-          // Draw polyline
           if (routeLine) map.removeLayer(routeLine);
           const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
           routeLine = L.polyline(coordinates, { color: '#34c759', weight: 5, opacity: 0.9 }).addTo(map);
           map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
 
-          // Parse Turn Steps
           navSteps = [];
           route.legs[0].steps.forEach(s => {
             navSteps.push({
               instruction: s.maneuver.type === 'arrive' ? \`Arrived at \${destinationName}\` : (s.name ? \`Turn onto \${s.name}\` : 'Head towards destination'),
               type: s.maneuver.type,
               modifier: s.maneuver.modifier,
-              distance: Math.round(s.distance * 3.28084), // feet
+              distance: Math.round(s.distance * 3.28084),
               duration: Math.round(route.duration / 60)
             });
           });
@@ -638,7 +619,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
           showStepInHUD(destinationName);
         }
       } catch (e) {
-        // Fallback simple HUD
         navSteps = [{ instruction: \`Heading to \${destinationName}\`, type: 'straight', distance: 500, duration: 5 }];
         currentStepIdx = 0;
         showStepInHUD(destinationName);
@@ -658,7 +638,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       document.getElementById('hud-instruction').innerText = step.instruction;
       document.getElementById('hud-sub').innerText = step.type === 'arrive' ? 'Destination Reached' : \`In \${step.distance} ft • \${step.duration} min to \${destName}\`;
       
-      // Slide up Meta HUD banner
       document.getElementById('meta-nav-card').classList.add('active');
     }
 
@@ -677,22 +656,187 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       if (searchMarker) map.removeLayer(searchMarker);
     }
 
-    function quickSearch(category) {
-      document.getElementById('map-search-input').value = category;
-      searchLocation(category);
-    }
-
     window.onload = initMap;
   <\/script>
 </body>
 </html>`;
 
-    // System Default Apps
+    // -------------------------------------------------------------
+    // CUSTOM APP 3: Camera & POV Video Taping App (Android/Web Native)
+    // -------------------------------------------------------------
+    const cameraAppCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Camera</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: white; }
+    
+    #cam-preview { width: 100%; height: 100%; object-fit: cover; }
+    
+    .hud-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 16px; pointer-events: none;
+    }
+
+    .cam-status {
+      align-self: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold;
+      display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; }
+    .rec-dot.active { animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .cam-controls {
+      display: flex; justify-content: space-around; align-items: center;
+      padding-bottom: 10px; pointer-events: auto;
+    }
+
+    .shutter-btn {
+      width: 60px; height: 60px; border-radius: 50%; border: 4px solid white;
+      background: transparent; display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    .shutter-inner {
+      width: 44px; height: 44px; border-radius: 50%; background: #ff3b30;
+      transition: all 0.2s ease;
+    }
+
+    .shutter-btn.recording .shutter-inner {
+      width: 24px; height: 24px; border-radius: 6px; background: #ff3b30;
+    }
+
+    .snap-btn {
+      background: rgba(255,255,255,0.25); border: none; color: white;
+      padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: bold; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <video id="cam-preview" autoplay playsinline muted></video>
+
+  <div class="hud-overlay">
+    <div class="cam-status">
+      <div class="rec-dot" id="rec-indicator"></div>
+      <span id="timer-label">POV Mode • Ready</span>
+    </div>
+
+    <div class="cam-controls">
+      <button class="snap-btn" onclick="takePhoto()">📷 Photo</button>
+      <div class="shutter-btn" id="record-btn" onclick="toggleRecording()">
+        <div class="shutter-inner"></div>
+      </div>
+      <button class="snap-btn" onclick="switchCamera()">🔄 Flip</button>
+    </div>
+  </div>
+
+  <script>
+    let stream, mediaRecorder, recordedChunks = [];
+    let isRecording = false, timerInterval, seconds = 0;
+    let currentFacing = 'environment';
+
+    async function startCam() {
+      if (stream) { stream.getTracks().forEach(t => t.stop()); }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacing },
+          audio: true
+        });
+        document.getElementById('cam-preview').srcObject = stream;
+      } catch (err) {
+        document.getElementById('timer-label').innerText = "Camera Access Error";
+      }
+    }
+
+    function toggleRecording() {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    function startRecording() {
+      recordedChunks = [];
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = saveVideo;
+
+      mediaRecorder.start();
+      isRecording = true;
+      document.getElementById('record-btn').classList.add('recording');
+      document.getElementById('rec-indicator').classList.add('active');
+
+      seconds = 0;
+      timerInterval = setInterval(() => {
+        seconds++;
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        document.getElementById('timer-label').innerText = \`REC \${mins}:\${secs}\`;
+      }, 1000);
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(timerInterval);
+      document.getElementById('record-btn').classList.remove('recording');
+      document.getElementById('rec-indicator').classList.remove('active');
+      document.getElementById('timer-label').innerText = "Saving POV...";
+    }
+
+    function saveVideo() {
+      const blob = new Blob(recordedChunks, { type: "video/mp4" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = \`AR_POV_\${Date.now()}.mp4\`;
+      a.click();
+      document.getElementById('timer-label').innerText = "POV Saved!";
+      setTimeout(() => document.getElementById('timer-label').innerText = "POV Mode • Ready", 2500);
+    }
+
+    function takePhoto() {
+      const video = document.getElementById('cam-preview');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL('image/png');
+      a.download = \`AR_Snap_\${Date.now()}.png\`;
+      a.click();
+    }
+
+    function switchCamera() {
+      currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
+      startCam();
+    }
+
+    window.onload = startCam;
+  <\/script>
+</body>
+</html>`;
+
+    // System Default Apps (Including Android Native Dial/SMS links and icons)
     const defaultApps = [
-      { name: 'Phone', url: 'tel:', domain: 'apple.com', native: true },
-      { name: 'Text', url: 'sms:', domain: 'apple.com', native: true },
-      { name: 'Maps', url: 'internal:maps', domain: 'maps.google.com', native: false },
-      { name: 'JewTube', url: 'internal:jewtube', domain: 'youtube.com', native: false },
+      { name: 'Phone', url: 'tel:', icon: '📞', native: true },
+      { name: 'Messages', url: 'sms:', icon: '💬', native: true },
+      { name: 'Camera', url: 'internal:camera', icon: '📷', native: false },
+      { name: 'Maps', url: 'internal:maps', icon: '🗺️', native: false },
+      { name: 'JewTube', url: 'internal:jewtube', icon: '▶️', native: false },
       { name: 'Spotify', url: 'https://open.spotify.com', domain: 'spotify.com', native: false }
     ];
 
@@ -712,7 +856,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       }
     }
 
-    // Render Grid
+    // Render App Grid
     function renderApps() {
       const grid = document.getElementById('app-grid');
       grid.innerHTML = '';
@@ -721,12 +865,16 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         const appDiv = document.createElement('div');
         appDiv.className = 'app-icon';
         
-        let logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${app.domain || 'google.com'}`;
+        let logoHtml = '';
+        if (app.icon) {
+          logoHtml = `<div class="icon-box">${app.icon}</div>`;
+        } else {
+          let logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${app.domain || 'google.com'}`;
+          logoHtml = `<div class="icon-box"><img src="${logoUrl}" alt="${app.name}" /></div>`;
+        }
 
         appDiv.innerHTML = `
-          <div class="icon-box">
-            <img src="${logoUrl}" alt="${app.name}" />
-          </div>
+          ${logoHtml}
           <span class="app-label">${app.name}</span>
         `;
 
@@ -735,7 +883,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       });
     }
 
-    // App Navigation Logic
+    // App Navigation
     function openApp(app) {
       if (app.native || app.url.startsWith('tel:') || app.url.startsWith('sms:')) {
         window.location.href = app.url;
@@ -751,6 +899,8 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         iframe.srcdoc = jewtubeCode;
       } else if (app.url === 'internal:maps') {
         iframe.srcdoc = mapsCode;
+      } else if (app.url === 'internal:camera') {
+        iframe.srcdoc = cameraAppCode;
       } else {
         iframe.removeAttribute('srcdoc');
         iframe.src = app.url;
@@ -774,7 +924,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       document.getElementById('add-btn').style.display = 'inline-block';
     }
 
-    // Add App Modal
+    // Modal controls
     function openModal() {
       document.getElementById('add-modal').style.display = 'flex';
     }
