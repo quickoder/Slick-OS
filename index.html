@@ -187,10 +187,7 @@
       z-index: 110;
     }
 
-    .modal h3 {
-      font-size: 16px;
-      text-align: center;
-    }
+    .modal h3 { font-size: 16px; text-align: center; }
 
     .modal input {
       width: 100%;
@@ -203,11 +200,7 @@
       outline: none;
     }
 
-    .modal-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 5px;
-    }
+    .modal-buttons { display: flex; gap: 10px; margin-top: 5px; }
 
     .modal-buttons button {
       flex: 1;
@@ -504,4 +497,685 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
 
     .nav-actions { display: flex; align-items: center; gap: 6px; }
     .nav-btn-next { background: #34c759; border: none; color: black; padding: 7px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; cursor: pointer; }
-    .nav-btn-close { background: rgba(255,255,255,0.15); border: none; color: white; padding: 7px 10px; border-radius: 12px
+    .nav-btn-close { background: rgba(255,255,255,0.15); border: none; color: white; padding: 7px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="controls-overlay">
+    <div class="search-box">
+      <input type="text" id="map-search-input" placeholder="Search address or location..." onkeydown="if(event.key==='Enter') searchLocation()">
+      <button onclick="searchLocation()">Go</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="meta-nav-card" id="meta-nav-card">
+    <div class="nav-icon-box" id="hud-turn-icon">⬆️</div>
+    <div class="nav-details">
+      <span class="nav-instruction" id="hud-instruction">Head North on Main St</span>
+      <span class="nav-sub" id="hud-sub">In 200 ft • 4 min (0.8 mi)</span>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn-next" onclick="nextStep()">Next</button>
+      <button class="nav-btn-close" onclick="cancelNav()">✕</button>
+    </div>
+  </div>
+
+  <script>
+    let map, userMarker, searchMarker, routeLine;
+    let defaultLat = 34.0522, defaultLng = -118.2437;
+    let navSteps = [], currentStepIdx = 0;
+
+    function initMap() {
+      map = L.map('map', { zoomControl: false }).setView([defaultLat, defaultLng], 14);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap © CARTO'
+      }).addTo(map);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          defaultLat = pos.coords.latitude;
+          defaultLng = pos.coords.longitude;
+          map.setView([defaultLat, defaultLng], 15);
+          addUserMarker(defaultLat, defaultLng);
+        }, () => addUserMarker(defaultLat, defaultLng));
+      } else {
+        addUserMarker(defaultLat, defaultLng);
+      }
+    }
+
+    function addUserMarker(lat, lng) {
+      if (userMarker) map.removeLayer(userMarker);
+      const userIcon = L.divIcon({
+        className: 'custom-user-pin',
+        html: '<div style="width:18px;height:18px;background:#007aff;border:3px solid white;border-radius:50%;box-shadow:0 0 12px #007aff;"></div>'
+      });
+      userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+    }
+
+    async function searchLocation(queryOverride) {
+      const query = queryOverride || document.getElementById('map-search-input').value.trim();
+      if (!query) return;
+
+      try {
+        const res = await fetch(\`https://nominatim.openstreetmap.org/search?format=json&q=\${encodeURIComponent(query)}&lat=\${defaultLat}&lon=\${defaultLng}\`);
+        const data = await res.json();
+
+        if (data && data.length > 0) {
+          const destLat = parseFloat(data[0].lat);
+          const destLng = parseFloat(data[0].lon);
+
+          if (searchMarker) map.removeLayer(searchMarker);
+          searchMarker = L.marker([destLat, destLng]).addTo(map).bindPopup(data[0].display_name).openPopup();
+
+          await getTurnByTurnRoute(defaultLat, defaultLng, destLat, destLng, data[0].display_name.split(',')[0]);
+        }
+      } catch (err) { console.error("Navigation error", err); }
+    }
+
+    async function getTurnByTurnRoute(startLat, startLng, endLat, endLng, destinationName) {
+      const url = \`https://router.project-osrm.org/route/v1/driving/\${startLng},\${startLat};\${endLng},\${endLat}?steps=true&geometries=geojson\`;
+      try {
+        const res = await fetch(url);
+        const routeData = await res.json();
+
+        if (routeData.routes && routeData.routes.length > 0) {
+          const route = routeData.routes[0];
+          
+          if (routeLine) map.removeLayer(routeLine);
+          const coordinates = route.geometry.coordinates.map(c => [c[1], c[0]]);
+          routeLine = L.polyline(coordinates, { color: '#34c759', weight: 5, opacity: 0.9 }).addTo(map);
+          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+          navSteps = [];
+          route.legs[0].steps.forEach(s => {
+            navSteps.push({
+              instruction: s.maneuver.type === 'arrive' ? \`Arrived at \${destinationName}\` : (s.name ? \`Turn onto \${s.name}\` : 'Head towards destination'),
+              type: s.maneuver.type,
+              modifier: s.maneuver.modifier,
+              distance: Math.round(s.distance * 3.28084),
+              duration: Math.round(route.duration / 60)
+            });
+          });
+
+          currentStepIdx = 0;
+          showStepInHUD(destinationName);
+        }
+      } catch (e) {
+        navSteps = [{ instruction: \`Heading to \${destinationName}\`, type: 'straight', distance: 500, duration: 5 }];
+        currentStepIdx = 0;
+        showStepInHUD(destinationName);
+      }
+    }
+
+    function showStepInHUD(destName) {
+      if (navSteps.length === 0) return;
+      const step = navSteps[currentStepIdx];
+      
+      let icon = '⬆️';
+      if (step.modifier?.includes('right')) icon = '↗️';
+      else if (step.modifier?.includes('left')) icon = '↖️';
+      else if (step.type === 'arrive') icon = '📍';
+
+      document.getElementById('hud-turn-icon').innerText = icon;
+      document.getElementById('hud-instruction').innerText = step.instruction;
+      document.getElementById('hud-sub').innerText = step.type === 'arrive' ? 'Destination Reached' : \`In \${step.distance} ft • \${step.duration} min to \${destName}\`;
+      
+      document.getElementById('meta-nav-card').classList.add('active');
+    }
+
+    function nextStep() {
+      currentStepIdx++;
+      if (currentStepIdx < navSteps.length) { showStepInHUD('Destination'); } 
+      else { cancelNav(); }
+    }
+
+    function cancelNav() {
+      document.getElementById('meta-nav-card').classList.remove('active');
+      if (routeLine) map.removeLayer(routeLine);
+      if (searchMarker) map.removeLayer(searchMarker);
+    }
+
+    window.onload = initMap;
+  <\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 3: Camera
+    // -------------------------------------------------------------
+    const cameraAppCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Camera</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: white; }
+    #cam-preview { width: 100%; height: 100%; object-fit: cover; }
+    
+    .hud-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 16px; pointer-events: none;
+    }
+
+    .cam-status {
+      align-self: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold;
+      display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; }
+    .rec-dot.active { animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .cam-controls {
+      display: flex; justify-content: space-around; align-items: center;
+      padding-bottom: 10px; pointer-events: auto;
+    }
+
+    .shutter-btn {
+      width: 60px; height: 60px; border-radius: 50%; border: 4px solid white;
+      background: transparent; display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    .shutter-inner {
+      width: 44px; height: 44px; border-radius: 50%; background: #ff3b30;
+      transition: all 0.2s ease;
+    }
+
+    .shutter-btn.recording .shutter-inner {
+      width: 24px; height: 24px; border-radius: 6px; background: #ff3b30;
+    }
+
+    .snap-btn {
+      background: rgba(255,255,255,0.25); border: none; color: white;
+      padding: 10px 18px; border-radius: 12px; font-size: 12px; font-weight: bold; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <video id="cam-preview" autoplay playsinline muted></video>
+
+  <div class="hud-overlay">
+    <div class="cam-status">
+      <div class="rec-dot" id="rec-indicator"></div>
+      <span id="timer-label">POV Mode • Ready</span>
+    </div>
+
+    <div class="cam-controls">
+      <button class="snap-btn" onclick="takePhoto()">📷 Photo</button>
+      <div class="shutter-btn" id="record-btn" onclick="toggleRecording()">
+        <div class="shutter-inner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let stream, mediaRecorder, recordedChunks = [];
+    let isRecording = false, timerInterval, seconds = 0;
+
+    async function startCam() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: true
+        });
+      } catch (err) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: true
+          });
+        } catch (e) {
+          document.getElementById('timer-label').innerText = "Camera Access Blocked";
+          return;
+        }
+      }
+      document.getElementById('cam-preview').srcObject = stream;
+    }
+
+    function toggleRecording() {
+      if (!isRecording) { startRecording(); } 
+      else { stopRecording(); }
+    }
+
+    function startRecording() {
+      recordedChunks = [];
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = saveVideo;
+
+      mediaRecorder.start();
+      isRecording = true;
+      document.getElementById('record-btn').classList.add('recording');
+      document.getElementById('rec-indicator').classList.add('active');
+
+      seconds = 0;
+      timerInterval = setInterval(() => {
+        seconds++;
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        document.getElementById('timer-label').innerText = \`REC \${mins}:\${secs}\`;
+      }, 1000);
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(timerInterval);
+      document.getElementById('record-btn').classList.remove('recording');
+      document.getElementById('rec-indicator').classList.remove('active');
+      document.getElementById('timer-label').innerText = "Saving to Gallery...";
+    }
+
+    async function saveVideo() {
+      const blob = new Blob(recordedChunks, { type: "video/mp4" });
+      const file = new File([blob], \`AR_Video_\${Date.now()}.mp4\`, { type: "video/mp4" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Save Video', text: 'AR Video Recording' });
+          document.getElementById('timer-label').innerText = "Saved to Gallery!";
+        } catch (e) { downloadFallback(blob, \`AR_Video_\${Date.now()}.mp4\`); }
+      } else {
+        downloadFallback(blob, \`AR_Video_\${Date.now()}.mp4\`);
+      }
+      setTimeout(() => document.getElementById('timer-label').innerText = "POV Mode • Ready", 2500);
+    }
+
+    async function takePhoto() {
+      const video = document.getElementById('cam-preview');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], \`AR_Snap_\${Date.now()}.png\`, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'Save Photo', text: 'AR Snap Photo' });
+            document.getElementById('timer-label').innerText = "Saved to Gallery!";
+          } catch (e) { downloadFallback(blob, \`AR_Snap_\${Date.now()}.png\`); }
+        } else {
+          downloadFallback(blob, \`AR_Snap_\${Date.now()}.png\`);
+        }
+        setTimeout(() => document.getElementById('timer-label').innerText = "POV Mode • Ready", 2500);
+      }, 'image/png');
+    }
+
+    function downloadFallback(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      document.getElementById('timer-label').innerText = "File Downloaded!";
+    }
+
+    window.onload = startCam;
+  <\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 4: Native Phone Dialer App (Direct Top Level Call)
+    // -------------------------------------------------------------
+    const phoneAppCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phone</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #111; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+    .display { font-size: 28px; font-weight: bold; height: 40px; margin-bottom: 20px; letter-spacing: 2px; text-align: center; color: #fff; }
+    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; max-width: 260px; }
+    .key { width: 65px; height: 65px; border-radius: 50%; background: rgba(255,255,255,0.15); font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; user-select: none; }
+    .key:active { background: rgba(255,255,255,0.3); }
+    .call-btn { grid-column: span 3; background: #34c759; border-radius: 30px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; margin-top: 10px; cursor: pointer; color: white; border: none; }
+    .call-btn:active { background: #2fb350; }
+  </style>
+</head>
+<body>
+  <div class="display" id="number-display"></div>
+  <div class="keypad">
+    <div class="key" onclick="press('1')">1</div><div class="key" onclick="press('2')">2</div><div class="key" onclick="press('3')">3</div>
+    <div class="key" onclick="press('4')">4</div><div class="key" onclick="press('5')">5</div><div class="key" onclick="press('6')">6</div>
+    <div class="key" onclick="press('7')">7</div><div class="key" onclick="press('8')">8</div><div class="key" onclick="press('9')">9</div>
+    <div class="key" onclick="press('*')">*</div><div class="key" onclick="press('0')">0</div><div class="key" onclick="press('#')">#</div>
+    <button class="call-btn" onclick="makeCall()">📞 Call</button>
+  </div>
+  <script>
+    let num = '';
+    function press(v) {
+      num += v;
+      document.getElementById('number-display').innerText = num;
+    }
+    function makeCall() {
+      if(!num) return;
+      window.top.location.href = 'tel:' + num;
+    }
+  <\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 5: Native Messages App (Triggers Native SMS)
+    // -------------------------------------------------------------
+    const messagesAppCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messages</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #111; color: white; padding: 15px; height: 100vh; display: flex; flex-direction: column; }
+    h2 { font-size: 16px; margin-bottom: 8px; color: #34c759; }
+    
+    .recipient-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; background: rgba(255,255,255,0.08); padding: 6px 12px; border-radius: 12px; }
+    .recipient-bar label { font-size: 12px; color: #aaa; }
+    .recipient-bar input { background: transparent; border: none; color: white; outline: none; font-size: 13px; width: 100%; }
+
+    .msg-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+    .bubble { background: #007aff; padding: 10px 14px; border-radius: 16px; align-self: flex-end; max-width: 80%; font-size: 13px; word-break: break-word; }
+    .bubble.received { background: #262628; align-self: flex-start; }
+    
+    .input-bar { display: flex; gap: 8px; margin-top: 10px; }
+    input.msg-input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); background: #222; color: white; outline: none; font-size: 13px; }
+    button.send-btn { background: #34c759; border: none; color: white; padding: 10px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h2>AR Messages Center</h2>
+  
+  <div class="recipient-bar">
+    <label>To:</label>
+    <input type="text" id="phone-num" placeholder="Enter Phone Number...">
+  </div>
+
+  <div class="msg-list" id="chat">
+    <div class="bubble received">Welcome to AR Messages! Enter a phone number above to text anyone from your device.</div>
+  </div>
+
+  <div class="input-bar">
+    <input type="text" class="msg-input" id="msg-input" placeholder="Type SMS message..." onkeydown="if(event.key==='Enter') sendMsg()">
+    <button class="send-btn" onclick="sendMsg()">Send SMS</button>
+  </div>
+
+  <script>
+    function sendMsg() {
+      const phone = document.getElementById('phone-num').value.trim();
+      const input = document.getElementById('msg-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chat = document.getElementById('chat');
+      
+      // Add message bubble to AR UI
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.innerText = text;
+      chat.appendChild(b);
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      // Trigger Native Device SMS App
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const smsUrl = isIOS 
+        ? \`sms:\${phone}&body=\${encodeURIComponent(text)}\` 
+        : \`sms:\${phone}?body=\${encodeURIComponent(text)}\`;
+
+      window.top.location.href = smsUrl;
+
+      // Simulated auto-reply for AR Glass experience
+      setTimeout(() => {
+        const reply = document.createElement('div');
+        reply.className = 'bubble received';
+        reply.innerText = \`[Outgoing SMS trigger sent to \${phone || "recipient"}]\`;
+        chat.appendChild(reply);
+        chat.scrollTop = chat.scrollHeight;
+      }, 1000);
+    }
+  <\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 6: AR Gemini AI Assistant
+    // -------------------------------------------------------------
+    const aiAssistantCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR AI Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0c0c12; color: white; padding: 15px; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+    .header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+    .ai-orb { width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #6366f1, #3b82f6); box-shadow: 0 0 10px #a855f7; }
+    .header h2 { font-size: 16px; font-weight: 700; background: linear-gradient(90deg, #c084fc, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .chat-box { flex: 1; overflow-y: auto; padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+    .msg { padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.4; max-width: 85%; }
+    .user-msg { background: rgba(99, 102, 241, 0.3); border: 1px solid rgba(99, 102, 241, 0.5); align-self: flex-end; }
+    .ai-msg { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); align-self: flex-start; }
+
+    .input-bar { display: flex; gap: 8px; background: rgba(255,255,255,0.06); padding: 6px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); }
+    input { flex: 1; background: transparent; border: none; color: white; padding: 8px 12px; font-size: 13px; outline: none; }
+    button { background: linear-gradient(135deg, #8b5cf6, #3b82f6); border: none; color: white; padding: 8px 16px; border-radius: 16px; font-weight: bold; cursor: pointer; font-size: 12px; }
+    .mic-btn { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 12px; border-radius: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="ai-orb"></div>
+    <h2>AR Gemini AI</h2>
+  </div>
+
+  <div class="chat-box" id="chat">
+    <div class="msg ai-msg">Hello! I am your AR Glasses AI Assistant. How can I help you today?</div>
+  </div>
+
+  <div class="input-bar">
+    <button class="mic-btn" onclick="startVoice()">🎙️</button>
+    <input type="text" id="ai-input" placeholder="Ask AI anything..." onkeydown="if(event.key==='Enter') askAI()">
+    <button onclick="askAI()">Ask</button>
+  </div>
+
+  <script>
+    const GEMINI_API_KEY = "AIzaSyC7Mdu-brt_LdYmAW8N1HgQ5BaNBRx4488";
+
+    async function askAI() {
+      const input = document.getElementById('ai-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMsg(text, 'user-msg');
+      input.value = '';
+
+      const loadingMsg = appendMsg("Thinking...", 'ai-msg');
+
+      try {
+        const res = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: text }] }] })
+        });
+        const data = await res.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't process that.";
+        loadingMsg.innerText = reply;
+      } catch (e) {
+        loadingMsg.innerText = "Error connecting to AI service.";
+      }
+    }
+
+    function appendMsg(text, cls) {
+      const chat = document.getElementById('chat');
+      const msg = document.createElement('div');
+      msg.className = 'msg ' + cls;
+      msg.innerText = text;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+      return msg;
+    }
+
+    function startVoice() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Voice input not supported in this browser.');
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.onresult = (e) => {
+        document.getElementById('ai-input').value = e.results[0][0].transcript;
+        askAI();
+      };
+      recognition.start();
+    }
+  <\/script>
+</body>
+</html>`;
+
+    // 3D Glassmorphism Vector Theme Icons
+    const icons3D = {
+      phone: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2338b6ff'/><stop offset='100%25' stop-color='%230052d4'/></linearGradient><linearGradient id='glass' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23ffffff' stop-opacity='0.6'/><stop offset='100%25' stop-color='%23ffffff' stop-opacity='0.0'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><rect x='10' y='10' width='80' height='40' rx='24' fill='url(%23glass)'/><path d='M35 30 C35 30 38 30 42 35 C45 39 44 42 41 45 C45 52 50 57 57 61 C60 58 63 57 67 60 C72 64 72 67 72 67 C72 73 64 76 59 74 C42 68 31 52 28 39 C26 33 31 29 35 30 Z' fill='%23ffffff' filter='url(%23shadow)'/></svg>",
+      messages: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%234facfe'/><stop offset='100%25' stop-color='%2300f2fe'/></linearGradient><linearGradient id='glass' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23ffffff' stop-opacity='0.6'/><stop offset='100%25' stop-color='%23ffffff' stop-opacity='0.0'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><rect x='10' y='10' width='80' height='40' rx='24' fill='url(%23glass)'/><path d='M25 32 H75 C80 32 84 36 84 41 V57 C84 62 80 66 75 66 H40 L26 76 V66 C21 66 18 62 18 57 V41 C18 36 21 32 25 32 Z' fill='%23ffffff'/><rect x='30' y='42' width='38' height='4' rx='2' fill='%232b72fb'/><rect x='30' y='50' width='24' height='4' rx='2' fill='%232b72fb'/></svg>",
+      camera: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23434343'/><stop offset='100%25' stop-color='%23000000'/></linearGradient><linearGradient id='lens' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23185a9d'/><stop offset='100%25' stop-color='%234ca1af'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.5'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><path d='M36 30 L42 24 H58 L64 30 H75 C79 30 82 33 82 37 V67 C82 71 79 74 75 74 H25 C21 74 18 71 18 67 V37 C18 33 21 30 25 30 Z' fill='%23222222' stroke='%23555555' stroke-width='2'/><circle cx='50' cy='52' r='18' fill='url(%23lens)' stroke='%23ffffff' stroke-width='3'/><circle cx='50' cy='52' r='8' fill='%230a1118'/><circle cx='56' cy='46' r='3' fill='%23ffffff' opacity='0.8'/></svg>",
+      maps: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2311998e'/><stop offset='100%25' stop-color='%2338ef7d'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><path d='M25 30 L40 24 L60 30 L75 24 V68 L60 74 L40 68 L25 74 Z' fill='%23ffffff' opacity='0.85'/><path d='M40 24 V68' stroke='%2338ef7d' stroke-width='3'/><path d='M60 30 V74' stroke='%2311998e' stroke-width='3'/><path d='M50 32 C43 32 38 37 38 44 C38 53 50 64 50 64 C50 64 62 53 62 44 C62 37 57 32 50 32 Z' fill='%23ff3b30' filter='url(%23shadow)'/><circle cx='50' cy='42' r='4' fill='%23ffffff'/></svg>",
+      jewtube: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23ff416c'/><stop offset='100%25' stop-color='%23ff4b2b'/></linearGradient><linearGradient id='glass' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23ffffff' stop-opacity='0.5'/><stop offset='100%25' stop-color='%23ffffff' stop-opacity='0.0'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><rect x='10' y='10' width='80' height='40' rx='24' fill='url(%23glass)'/><path d='M22 36 C22 30 26 28 50 28 C74 28 78 30 78 36 V64 C78 70 74 72 50 72 C26 72 22 70 22 64 Z' fill='%23ffffff' filter='url(%23shadow)'/><polygon points='44,38 62,50 44,62' fill='%23ff416c'/></svg>",
+      spotify: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2311998e'/><stop offset='100%25' stop-color='%2338ef7d'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='%23121212' filter='url(%23shadow)'/><circle cx='50' cy='50' r='36' fill='%231db954'/><path d='M28 42 C42 36 62 38 72 43' stroke='%23121212' stroke-width='6' stroke-linecap='round' fill='none'/><path d='M31 51 C43 46 59 48 68 52' stroke='%23121212' stroke-width='5' stroke-linecap='round' fill='none'/><path d='M34 60 C43 56 55 58 63 61' stroke='%23121212' stroke-width='4' stroke-linecap='round' fill='none'/></svg>",
+      ai: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%238b5cf6'/><stop offset='100%25' stop-color='%233b82f6'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><circle cx='50' cy='50' r='20' fill='%23ffffff' opacity='0.9'/><circle cx='50' cy='50' r='10' fill='%238b5cf6'/></svg>"
+    };
+
+    // System Apps Configuration
+    const defaultApps = [
+      { name: 'Phone', url: 'internal:phone', imgUrl: icons3D.phone },
+      { name: 'Messages', url: 'internal:messages', imgUrl: icons3D.messages },
+      { name: 'Camera', url: 'internal:camera', imgUrl: icons3D.camera },
+      { name: 'Maps', url: 'internal:maps', imgUrl: icons3D.maps },
+      { name: 'JewTube', url: 'internal:jewtube', imgUrl: icons3D.jewtube },
+      { name: 'Spotify', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M', imgUrl: icons3D.spotify },
+      { name: 'AR AI', url: 'internal:ai', imgUrl: icons3D.ai }
+    ];
+
+    let userApps = JSON.parse(localStorage.getItem('ar_apps_v2')) || defaultApps;
+
+    // Start Live AR Camera Passthrough
+    async function initCamera() {
+      const video = document.getElementById('camera-feed');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = fallbackStream;
+        } catch (e) { console.warn("Camera passthrough permission denied"); }
+      }
+    }
+
+    // Render Grid Apps
+    function renderApps() {
+      const grid = document.getElementById('app-grid');
+      grid.innerHTML = userApps.map((app, index) => `
+        <div class="app-icon" onclick="launchApp(${index})">
+          <div class="icon-box">
+            <img src="${app.imgUrl}" alt="${app.name}">
+          </div>
+          <span class="app-label">${app.name}</span>
+        </div>
+      `).join('');
+    }
+
+    // App Launcher
+    function launchApp(index) {
+      const app = userApps[index];
+      const frame = document.getElementById('app-frame');
+      
+      if (app.url === 'internal:jewtube') {
+        frame.srcdoc = jewtubeCode;
+      } else if (app.url === 'internal:maps') {
+        frame.srcdoc = mapsCode;
+      } else if (app.url === 'internal:camera') {
+        frame.srcdoc = cameraAppCode;
+      } else if (app.url === 'internal:phone') {
+        frame.srcdoc = phoneAppCode;
+      } else if (app.url === 'internal:messages') {
+        frame.srcdoc = messagesAppCode;
+      } else if (app.url === 'internal:ai') {
+        frame.srcdoc = aiAssistantCode;
+      } else {
+        frame.srcdoc = '';
+        frame.src = app.url;
+      }
+
+      document.querySelector('.app-grid-container').style.display = 'none';
+      document.getElementById('app-window').style.display = 'block';
+      document.getElementById('add-btn').style.display = 'none';
+      document.getElementById('undo-btn').style.display = 'block';
+      document.getElementById('island-status').innerText = app.name;
+    }
+
+    // Close Active App
+    function closeApp() {
+      const frame = document.getElementById('app-frame');
+      frame.src = 'about:blank';
+      frame.srcdoc = '';
+      document.getElementById('app-window').style.display = 'none';
+      document.querySelector('.app-grid-container').style.display = 'block';
+      document.getElementById('add-btn').style.display = 'block';
+      document.getElementById('undo-btn').style.display = 'none';
+      document.getElementById('island-status').innerText = 'AR Glasses OS';
+    }
+
+    // Modal Helpers
+    function openModal() { document.getElementById('add-modal').style.display = 'flex'; }
+    function closeModal() { document.getElementById('add-modal').style.display = 'none'; }
+
+    function saveApp() {
+      const name = document.getElementById('app-name').value.trim();
+      const url = document.getElementById('app-url').value.trim();
+
+      if (!name || !url) {
+        alert("Please provide both a name and a URL!");
+        return;
+      }
+
+      userApps.push({
+        name: name,
+        url: url,
+        imgUrl: icons3D.ai
+      });
+
+      localStorage.setItem('ar_apps_v2', JSON.stringify(userApps));
+      renderApps();
+      closeModal();
+      document.getElementById('app-name').value = '';
+      document.getElementById('app-url').value = '';
+    }
+
+    window.onload = () => {
+      initCamera();
+      renderApps();
+    };
+  </script>
+</body>
+</html>
