@@ -1,12 +1,3 @@
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
-
-// Handle notification click events to refocus the web app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
