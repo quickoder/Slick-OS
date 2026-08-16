@@ -248,6 +248,24 @@
   </div>
 
   <script>
+    // Helper to send system notification and return focus to the AR OS tab
+    function triggerReturnNotification(appName, bodyText) {
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          const notif = new Notification(`Return to ${appName}`, {
+            body: bodyText || "Tap here to instantly jump back to your AR Glasses OS.",
+            icon: "https://fav.farm/📱"
+          });
+          notif.onclick = function() {
+            window.focus();
+            this.close();
+          };
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission();
+        }
+      }
+    }
+
     // -------------------------------------------------------------
     // CUSTOM APP 1: JewTube
     // -------------------------------------------------------------
@@ -817,7 +835,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
     }
 
     function downloadFallback(blob, name) {
-      const url = URL.createObjectURL(blob);
+      const url = URL.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = name;
@@ -831,7 +849,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
 </html>`;
 
     // -------------------------------------------------------------
-    // CUSTOM APP 4: Native Phone Dialer App (Direct Top Level Call)
+    // CUSTOM APP 4: Native Phone Dialer App
     // -------------------------------------------------------------
     const phoneAppCode = `<!DOCTYPE html>
 <html lang="en">
@@ -867,14 +885,20 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
     }
     function makeCall() {
       if(!num) return;
-      window.top.location.href = 'tel:' + num;
+      window.parent.triggerReturnNotification('Phone Call', 'Tap to bring your AR Glasses OS back to focus.');
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = 'tel:' + num;
+        a.rel = 'noopener';
+        a.click();
+      }, 300);
     }
   <\/script>
 </body>
 </html>`;
 
     // -------------------------------------------------------------
-    // CUSTOM APP 5: Native Messages App (Triggers Native SMS)
+    // CUSTOM APP 5: Native Messages App (SMS with OS Return Notification)
     // -------------------------------------------------------------
     const messagesAppCode = `<!DOCTYPE html>
 <html lang="en">
@@ -909,7 +933,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
   </div>
 
   <div class="msg-list" id="chat">
-    <div class="bubble received">Welcome to AR Messages! Enter a phone number above to text anyone from your device.</div>
+    <div class="bubble received">Welcome to AR Messages! Type a message and hit Send to switch to native SMS with a return lock-screen banner.</div>
   </div>
 
   <div class="input-bar">
@@ -926,7 +950,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
 
       const chat = document.getElementById('chat');
       
-      // Add message bubble to AR UI
       const b = document.createElement('div');
       b.className = 'bubble';
       b.innerText = text;
@@ -934,29 +957,73 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       input.value = '';
       chat.scrollTop = chat.scrollHeight;
 
-      // Trigger Native Device SMS App
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const smsUrl = isIOS 
-        ? \`sms:\${phone}&body=\${encodeURIComponent(text)}\` 
-        : \`sms:\${phone}?body=\${encodeURIComponent(text)}\`;
+      // Trigger OS Return Notification
+      window.parent.triggerReturnNotification('Messages', 'Tap to instantly jump back to your AR Glasses OS.');
 
-      window.top.location.href = smsUrl;
-
-      // Simulated auto-reply for AR Glass experience
+      // Open Native SMS via App Switch
       setTimeout(() => {
-        const reply = document.createElement('div');
-        reply.className = 'bubble received';
-        reply.innerText = \`[Outgoing SMS trigger sent to \${phone || "recipient"}]\`;
-        chat.appendChild(reply);
-        chat.scrollTop = chat.scrollHeight;
-      }, 1000);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const smsUrl = isIOS 
+          ? \`sms:\${phone}&body=\${encodeURIComponent(text)}\` 
+          : \`sms:\${phone}?body=\${encodeURIComponent(text)}\`;
+
+        const link = document.createElement('a');
+        link.href = smsUrl;
+        link.rel = 'noopener';
+        link.click();
+      }, 300);
     }
   <\/script>
 </body>
 </html>`;
 
     // -------------------------------------------------------------
-    // CUSTOM APP 6: AR Gemini AI Assistant
+    // CUSTOM APP 6: WhatsApp Native Launcher (Replaces Spotify)
+    // -------------------------------------------------------------
+    const whatsappAppCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0b141a; color: white; padding: 20px; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    .wa-icon { font-size: 50px; margin-bottom: 10px; }
+    h2 { font-size: 20px; margin-bottom: 6px; color: #25d366; }
+    p { font-size: 12px; color: #8696a0; margin-bottom: 20px; max-width: 250px; }
+    
+    input { width: 100%; max-width: 280px; padding: 12px; border-radius: 12px; border: 1px solid #2a3942; background: #111b21; color: white; font-size: 14px; outline: none; margin-bottom: 12px; text-align: center; }
+    button { width: 100%; max-width: 280px; background: #25d366; border: none; color: #0b141a; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 14px; }
+    button:active { background: #1ebe5d; }
+  </style>
+</head>
+<body>
+  <div class="wa-icon">💬</div>
+  <h2>WhatsApp Launcher</h2>
+  <p>Enter phone number with country code to start chat in native WhatsApp.</p>
+  
+  <input type="text" id="wa-phone" placeholder="Phone # (e.g., 1234567890)">
+  <button onclick="launchWhatsApp()">Open WhatsApp</button>
+
+  <script>
+    function launchWhatsApp() {
+      const phone = document.getElementById('wa-phone').value.trim();
+      const target = phone || "1234567890";
+
+      // Trigger OS Return Notification banner
+      window.parent.triggerReturnNotification('WhatsApp', 'Tap to instantly jump back to your AR Glasses OS.');
+
+      setTimeout(() => {
+        window.open(\`https://wa.me/\${target}\`, '_blank');
+      }, 300);
+    }
+  <\/script>
+</body>
+</html>`;
+
+    // -------------------------------------------------------------
+    // CUSTOM APP 7: AR Gemini AI Assistant
     // -------------------------------------------------------------
     const aiAssistantCode = `<!DOCTYPE html>
 <html lang="en">
@@ -1059,7 +1126,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       camera: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23434343'/><stop offset='100%25' stop-color='%23000000'/></linearGradient><linearGradient id='lens' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23185a9d'/><stop offset='100%25' stop-color='%234ca1af'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.5'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><path d='M36 30 L42 24 H58 L64 30 H75 C79 30 82 33 82 37 V67 C82 71 79 74 75 74 H25 C21 74 18 71 18 67 V37 C18 33 21 30 25 30 Z' fill='%23222222' stroke='%23555555' stroke-width='2'/><circle cx='50' cy='52' r='18' fill='url(%23lens)' stroke='%23ffffff' stroke-width='3'/><circle cx='50' cy='52' r='8' fill='%230a1118'/><circle cx='56' cy='46' r='3' fill='%23ffffff' opacity='0.8'/></svg>",
       maps: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2311998e'/><stop offset='100%25' stop-color='%2338ef7d'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><path d='M25 30 L40 24 L60 30 L75 24 V68 L60 74 L40 68 L25 74 Z' fill='%23ffffff' opacity='0.85'/><path d='M40 24 V68' stroke='%2338ef7d' stroke-width='3'/><path d='M60 30 V74' stroke='%2311998e' stroke-width='3'/><path d='M50 32 C43 32 38 37 38 44 C38 53 50 64 50 64 C50 64 62 53 62 44 C62 37 57 32 50 32 Z' fill='%23ff3b30' filter='url(%23shadow)'/><circle cx='50' cy='42' r='4' fill='%23ffffff'/></svg>",
       jewtube: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23ff416c'/><stop offset='100%25' stop-color='%23ff4b2b'/></linearGradient><linearGradient id='glass' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23ffffff' stop-opacity='0.5'/><stop offset='100%25' stop-color='%23ffffff' stop-opacity='0.0'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><rect x='10' y='10' width='80' height='40' rx='24' fill='url(%23glass)'/><path d='M22 36 C22 30 26 28 50 28 C74 28 78 30 78 36 V64 C78 70 74 72 50 72 C26 72 22 70 22 64 Z' fill='%23ffffff' filter='url(%23shadow)'/><polygon points='44,38 62,50 44,62' fill='%23ff416c'/></svg>",
-      spotify: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2311998e'/><stop offset='100%25' stop-color='%2338ef7d'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='%23121212' filter='url(%23shadow)'/><circle cx='50' cy='50' r='36' fill='%231db954'/><path d='M28 42 C42 36 62 38 72 43' stroke='%23121212' stroke-width='6' stroke-linecap='round' fill='none'/><path d='M31 51 C43 46 59 48 68 52' stroke='%23121212' stroke-width='5' stroke-linecap='round' fill='none'/><path d='M34 60 C43 56 55 58 63 61' stroke='%23121212' stroke-width='4' stroke-linecap='round' fill='none'/></svg>",
+      whatsapp: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%2325d366'/><stop offset='100%25' stop-color='%23128c7e'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><path d='M50 22 C34.5 22 22 34.5 22 50 C22 55.5 23.6 60.6 26.4 65 L23.5 76.5 L35.4 73.4 C39.6 75.9 44.6 77.3 50 77.3 C65.5 77.3 78 64.8 78 49.3 C78 33.8 65.5 22 50 22 Z' fill='%23ffffff'/><path d='M42 36 C41 36 39.5 36.5 38.5 38 C37.5 39.5 35 42 35 47 C35 52 38.5 56.8 39 57.5 C39.5 58.2 46 68.2 56 72.5 C64.3 76.1 66 74.8 68 74.5 C70 74.2 74.5 71.8 75.5 69 C76.5 66.2 76.5 63.8 76 63.3 C75.5 62.8 74 62 71.5 60.8 C69 59.5 56.5 53.3 55.2 52.8 C54 52.3 53 52 52 53.5 C51 55 48.2 58.3 47.2 59.3 C46.2 60.3 45.2 60.5 43 59.3 C40.8 58.1 35.8 55.8 31.5 50.8 Z' fill='%23128c7e'/></svg>",
       ai: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%238b5cf6'/><stop offset='100%25' stop-color='%233b82f6'/></linearGradient><filter id='shadow' x='-20%25' y='-20%25' width='140%25' height='140%25'><feDropShadow dx='0' dy='6' stdDeviation='6' flood-color='%23000' flood-opacity='0.4'/></filter></defs><rect x='10' y='10' width='80' height='80' rx='24' fill='url(%23bg)' filter='url(%23shadow)'/><circle cx='50' cy='50' r='20' fill='%23ffffff' opacity='0.9'/><circle cx='50' cy='50' r='10' fill='%238b5cf6'/></svg>"
     };
 
@@ -1070,11 +1137,11 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       { name: 'Camera', url: 'internal:camera', imgUrl: icons3D.camera },
       { name: 'Maps', url: 'internal:maps', imgUrl: icons3D.maps },
       { name: 'JewTube', url: 'internal:jewtube', imgUrl: icons3D.jewtube },
-      { name: 'Spotify', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M', imgUrl: icons3D.spotify },
+      { name: 'WhatsApp', url: 'internal:whatsapp', imgUrl: icons3D.whatsapp },
       { name: 'AR AI', url: 'internal:ai', imgUrl: icons3D.ai }
     ];
 
-    let userApps = JSON.parse(localStorage.getItem('ar_apps_v2')) || defaultApps;
+    let userApps = JSON.parse(localStorage.getItem('ar_apps_v3')) || defaultApps;
 
     // Start Live AR Camera Passthrough
     async function initCamera() {
@@ -1120,6 +1187,8 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         frame.srcdoc = phoneAppCode;
       } else if (app.url === 'internal:messages') {
         frame.srcdoc = messagesAppCode;
+      } else if (app.url === 'internal:whatsapp') {
+        frame.srcdoc = whatsappAppCode;
       } else if (app.url === 'internal:ai') {
         frame.srcdoc = aiAssistantCode;
       } else {
@@ -1165,7 +1234,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         imgUrl: icons3D.ai
       });
 
-      localStorage.setItem('ar_apps_v2', JSON.stringify(userApps));
+      localStorage.setItem('ar_apps_v3', JSON.stringify(userApps));
       renderApps();
       closeModal();
       document.getElementById('app-name').value = '';
@@ -1175,6 +1244,9 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
     window.onload = () => {
       initCamera();
       renderApps();
+      if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
     };
   </script>
 </body>
