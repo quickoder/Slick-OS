@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>AR Glasses OS</title>
+  
+  <!-- PWA Manifest & iOS Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AR OS">
+
   <style>
     * {
       box-sizing: border-box;
@@ -21,7 +28,6 @@
       color: white;
     }
 
-    /* Live Camera Background Passthrough */
     #camera-feed {
       position: fixed;
       top: 0;
@@ -32,7 +38,6 @@
       z-index: 1;
     }
 
-    /* 70% Viewport Container (Lens Safe Zone) */
     .vr-safe-zone {
       position: relative;
       z-index: 2;
@@ -45,7 +50,6 @@
       padding: 30px 10px;
     }
 
-    /* Dynamic Island Top Bar */
     .dynamic-island {
       position: relative;
       z-index: 100;
@@ -86,7 +90,6 @@
 
     #undo-btn { display: none; }
 
-    /* App Grid Container */
     .app-grid-container {
       width: 100%;
       max-height: 75vh;
@@ -143,7 +146,6 @@
       text-overflow: ellipsis;
     }
 
-    /* Active Window Overlay */
     .app-window {
       width: 100%;
       height: 75vh;
@@ -163,7 +165,6 @@
       border: none;
     }
 
-    /* Add Custom App Modal */
     .modal {
       position: absolute;
       top: 90px;
@@ -242,15 +243,20 @@
   </div>
 
   <script>
-    // Updated Messaging Launcher with Delay Prevention
+    // Register PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Registration failed', err));
+    }
+
+    // PWA Service Worker Messaging Launcher
     function openExternalMessenger(scheme, name) {
       if ("Notification" in window) {
         if (Notification.permission === "granted") {
-          sendNotificationAndRedirect(scheme, name);
+          triggerPwaNotification(scheme, name);
         } else if (Notification.permission !== "denied") {
           Notification.requestPermission().then(permission => {
             if (permission === "granted") {
-              sendNotificationAndRedirect(scheme, name);
+              triggerPwaNotification(scheme, name);
             } else {
               window.location.href = scheme;
             }
@@ -263,22 +269,25 @@
       }
     }
 
-    function sendNotificationAndRedirect(scheme, name) {
-      try {
-        const notif = new Notification(`Opening ${name}`, {
-          body: "Tap to jump back to AR Glasses OS",
-          icon: "https://fav.farm/📱"
+    function triggerPwaNotification(scheme, name) {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(`Opening ${name}`, {
+            body: "Tap to return to AR Glasses OS",
+            icon: "https://fav.farm/📱",
+            renotify: true,
+            tag: "ar-app-switch"
+          });
         });
-
-        notif.onclick = function() {
-          window.focus();
-          this.close();
-        };
-      } catch (e) {
-        console.warn("Notification system error:", e);
+      } else {
+        try {
+          new Notification(`Opening ${name}`, {
+            body: "Tap to return to AR Glasses OS",
+            icon: "https://fav.farm/📱"
+          });
+        } catch (e) {}
       }
 
-      // Delay protocol execution slightly so the OS renders the notification
       setTimeout(() => {
         window.location.href = scheme;
       }, 350);
@@ -925,7 +934,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       renderAppGrid();
     }
 
-    // Camera Background Initialization
     async function initBackgroundCamera() {
       const video = document.getElementById('camera-feed');
       try {
@@ -938,7 +946,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
           video.srcObject = fallbackStream;
         } catch (e) {
-          console.warn("Background camera passthrough unavailable or blocked.");
+          console.warn("Background camera passthrough unavailable.");
         }
       }
     }
@@ -947,7 +955,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       renderAppGrid();
       initBackgroundCamera();
 
-      // Request notification permission on page load
       if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
         Notification.requestPermission();
       }
