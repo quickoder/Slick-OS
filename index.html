@@ -164,13 +164,11 @@
       <iframe id="app-frame" src="about:blank"></iframe>
     </div>
   </div>
-
   <script>
     // Register PWA Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Registration failed', err));
     }
-
     function openExternalMessenger(scheme, name) {
       if ('serviceWorker' in navigator && Notification.permission === 'granted') {
         navigator.serviceWorker.ready.then(registration => {
@@ -188,11 +186,11 @@
       }, 300);
     }
 
-    // Embedded JewTube App
+    // Embedded Apps
     const jewtubeCode = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="https://www.youtube.com/iframe_api"><\\/script>
+    <script src="https://www.youtube.com/iframe_api"><\/script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JewTube</title>
@@ -361,11 +359,10 @@ function closeVideoPlayer() {
 }
 function updateStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (creators.length > 0) fetchAllVideos(); });
-<\\/script>
+<\/script>
 </body>
 </html>`;
 
-    // Embedded Working AR Maps App (OpenStreetMap + Leaflet + Live GPS Routing)
     const mapsCode = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -373,7 +370,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AR Maps</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\\/script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: white; }
@@ -448,11 +445,12 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         attribution: '© OpenStreetMap © CARTO'
       }).addTo(map);
       if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(pos => {
+        navigator.geolocation.getCurrentPosition(pos => {
           defaultLat = pos.coords.latitude;
           defaultLng = pos.coords.longitude;
+          map.setView([defaultLat, defaultLng], 15);
           addUserMarker(defaultLat, defaultLng);
-        }, () => addUserMarker(defaultLat, defaultLng), { enableHighAccuracy: true });
+        }, () => addUserMarker(defaultLat, defaultLng));
       } else {
         addUserMarker(defaultLat, defaultLng);
       }
@@ -533,11 +531,10 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       if (searchMarker) map.removeLayer(searchMarker);
     }
     window.onload = initMap;
-  <\\/script>
+  <\/script>
 </body>
 </html>`;
 
-    // Embedded Camera App Code
     const cameraAppCode = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -673,7 +670,7 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       a.click();
     }
     window.onload = startCam;
-  <\\/script>
+  <\/script>
 </body>
 </html>`;
 
@@ -685,11 +682,10 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       { name: "WhatsApp", icon: "💬", type: "scheme", scheme: "whatsapp://send" },
       { name: "Messages", icon: "💬", type: "scheme", scheme: "sms:" }
     ];
-
+    let customApps = JSON.parse(localStorage.getItem("ar_custom_apps") || "[]");
     function getApps() {
-      return defaultApps;
+      return [...defaultApps, ...customApps];
     }
-
     function renderAppGrid() {
       const grid = document.getElementById('app-grid');
       const apps = getApps();
@@ -702,7 +698,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         `;
       }).join('');
     }
-
     function launchApp(index) {
       const apps = getApps();
       const app = apps[index];
@@ -722,7 +717,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       document.getElementById('undo-btn').style.display = 'inline-block';
       document.getElementById('island-status').innerText = app.name;
     }
-
     function closeApp() {
       const frame = document.getElementById('app-frame');
       frame.src = 'about:blank';
@@ -732,7 +726,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
       document.getElementById('undo-btn').style.display = 'none';
       document.getElementById('island-status').innerText = 'AR Glasses OS';
     }
-
     async function initBackgroundCamera() {
       const video = document.getElementById('camera-feed');
       try {
@@ -749,7 +742,6 @@ window.addEventListener('DOMContentLoaded', () => { renderCreatorChips(); if (cr
         }
       }
     }
-
     window.onload = function() {
       renderAppGrid();
       initBackgroundCamera();
